@@ -35,11 +35,38 @@ class DeviceService
         ]);
     }
 
-    public function listDevices(): array
+    public function listDevices(?array $pagination = null): array
     {
         $liveActiveIds = $this->processManager->liveActiveDeviceIds();
 
-        return Device::orderByDesc('created_at')
+        $query = Device::orderByDesc('created_at');
+
+        if ($pagination) {
+            $page = max(1, (int) ($pagination['page'] ?? 1));
+            $pageSize = max(1, (int) ($pagination['pageSize'] ?? 5));
+
+            $total = (clone $query)->count();
+            $items = $query
+                ->skip(($page - 1) * $pageSize)
+                ->take($pageSize)
+                ->get()
+                ->map(fn (Device $device) => [
+                    ...$device->toArray(),
+                    'live_active' => in_array($device->id, $liveActiveIds, true),
+                ])
+                ->all();
+
+            return [
+                'items' => $items,
+                'meta' => [
+                    'page' => $page,
+                    'pageSize' => $pageSize,
+                    'total' => $total,
+                ],
+            ];
+        }
+
+        return $query
             ->get()
             ->map(fn (Device $device) => [
                 ...$device->toArray(),

@@ -28,8 +28,35 @@ async function request(path, { method = 'GET', body } = {}) {
   return res.json();
 }
 
-export async function getDevices() {
-  return request('/devices');
+export async function getDevices(params = {}) {
+  const { page, pageSize } = params;
+
+  const query = [];
+  if (page !== undefined && page !== null) query.push(`page=${page}`);
+  if (pageSize !== undefined && pageSize !== null) query.push(`pageSize=${pageSize}`);
+  const queryString = query.length ? `?${query.join('&')}` : '';
+
+  const data = await request(`/devices${queryString}`);
+
+  if (Array.isArray(data)) {
+    const size = pageSize ?? data.length;
+    const currentPage = page ?? 1;
+    const start = (currentPage - 1) * size;
+    const items = data.slice(start, start + size);
+    return {
+      items,
+      meta: { page: currentPage, pageSize: size, total: data.length },
+    };
+  }
+
+  const items = data?.items ?? [];
+  const meta = data?.meta ?? {
+    page: page ?? 1,
+    pageSize: pageSize ?? items.length,
+    total: data?.total ?? items.length,
+  };
+
+  return { items, meta };
 }
 
 export async function createDevice(payload) {

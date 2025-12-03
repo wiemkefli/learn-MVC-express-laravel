@@ -118,10 +118,32 @@ button.secondary {
   overflow-x: auto;
 }
 
+.pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-info {
+  color: #4b5563;
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 15px;
+}
+
+.devices-table {
+  table-layout: fixed;
+}
+
+.devices-table th,
+.devices-table td {
+  word-break: break-word;
 }
 
 th,

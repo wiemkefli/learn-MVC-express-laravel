@@ -20,8 +20,12 @@ const initialFormState = {
   ip_address: '',
 };
 
+const DEVICES_PAGE_SIZE = 5;
+
 function App() {
   const [devices, setDevices] = useState([]);
+  const [totalDevices, setTotalDevices] = useState(0);
+  const [page, setPage] = useState(1);
   const [transactions, setTransactions] = useState([]);
   const [form, setForm] = useState(initialFormState);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -30,12 +34,17 @@ function App() {
   const [error, setError] = useState('');
   const [txError, setTxError] = useState('');
 
-  const fetchDevices = useCallback(async () => {
+  const fetchDevices = useCallback(async (pageToLoad = 1) => {
     setLoadingDevices(true);
     setError('');
+    const targetPage = pageToLoad ?? 1;
     try {
-      const data = await getDevices();
-      setDevices(data);
+      const { items, meta } = await getDevices({ page: targetPage, pageSize: DEVICES_PAGE_SIZE });
+      setDevices(items);
+      const total = meta?.total ?? items.length;
+      setTotalDevices(total);
+      const nextPage = meta?.page ?? targetPage;
+      setPage((current) => (current === nextPage ? current : nextPage));
     } catch (err) {
       setError(err.message || 'Failed to load devices');
     } finally {
@@ -57,8 +66,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetchDevices();
-  }, [fetchDevices]);
+    fetchDevices(page);
+  }, [fetchDevices, page]);
 
   useEffect(() => {
     fetchTransactions();
@@ -82,7 +91,11 @@ function App() {
     try {
       await createDevice(form);
       setForm(initialFormState);
-      await fetchDevices();
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        await fetchDevices(1);
+      }
     } catch (err) {
       setError(err.message || 'Failed to create device');
     } finally {
@@ -97,7 +110,7 @@ function App() {
       } else {
         await deactivateDevice(deviceId);
       }
-      await fetchDevices();
+      await fetchDevices(page);
     } catch (err) {
       setError(err.message || 'Failed to update device');
     }
@@ -110,6 +123,13 @@ function App() {
     }),
     []
   );
+
+  const pageCount = useMemo(
+    () => Math.max(1, Math.ceil(totalDevices / DEVICES_PAGE_SIZE) || 1),
+    [totalDevices]
+  );
+  const canPrev = page > 1;
+  const canNext = page < pageCount;
 
   return (
     <div className="app-shell">
@@ -172,12 +192,20 @@ function App() {
         <section className="card wide">
           <div className="section-header">
             <h2>Devices</h2>
-            <button className="ghost-btn" onClick={fetchDevices} disabled={loadingDevices}>
+            <button className="ghost-btn" onClick={() => fetchDevices(page)} disabled={loadingDevices}>
               {loadingDevices ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
           <div className="table-wrapper">
-            <table>
+            <table className="devices-table">
+              <colgroup>
+                <col style={{ width: '26%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '14%' }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -230,6 +258,25 @@ function App() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="pagination">
+            <button
+              className="ghost-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={!canPrev || loadingDevices}
+            >
+              Prev
+            </button>
+            <span className="page-info">
+              Page {page} of {pageCount}
+            </span>
+            <button
+              className="ghost-btn"
+              onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
+              disabled={!canNext || loadingDevices}
+            >
+              Next
+            </button>
           </div>
         </section>
 

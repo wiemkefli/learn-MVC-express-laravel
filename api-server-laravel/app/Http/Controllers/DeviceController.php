@@ -16,10 +16,30 @@ class DeviceController extends Controller
     {
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            return response()->json($this->deviceService->listDevices());
+            $pageRaw = $request->query('page');
+            $pageSizeRaw = $request->query('pageSize');
+            $usePagination = $request->has('page') || $request->has('pageSize');
+
+            $page = $pageRaw !== null ? (int) $pageRaw : 1;
+            $pageSize = $pageSizeRaw !== null ? (int) $pageSizeRaw : 5;
+
+            if ($usePagination) {
+                if ($page < 1 || $pageSize < 1) {
+                    throw new HttpException(400, 'page and pageSize must be positive integers');
+                }
+
+                // Guardrail to avoid unbounded requests
+                $pageSize = min($pageSize, 100);
+            }
+
+            $result = $usePagination
+                ? $this->deviceService->listDevices(['page' => $page, 'pageSize' => $pageSize])
+                : $this->deviceService->listDevices();
+
+            return response()->json($result);
         } catch (Throwable $e) {
             return $this->errorResponse($e);
         }
